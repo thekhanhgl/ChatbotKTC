@@ -1,2 +1,7 @@
 streamlit
 google-generativeai
+# Các thư viện khác thầy dùng (nếu có, ví dụ: pandas, numpy...)
+# Dựa trên log của thầy, có vẻ thầy cũng dùng altair, pandas v.v..
+# nhưng nếu code chatbot.py ở trên là toàn bộ, thầy chỉ cần 2 dòng trên.
+# Để an toàn, thầy hãy dùng danh sách rút gọn này trước.streamlit
+google-generativeai
