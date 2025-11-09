@@ -78,7 +78,7 @@ Khi học sinh hỏi về mục lục sách (ví dụ: Tin 12 KNTT), bạn PHẢ
 """
 
 # --- BƯỚC 3: KHỞI TẠO CLIENT VÀ CHỌN MÔ HÌNH ---
-MODEL_NAME = 'gemini-2.5-pro' 
+MODEL_NAME = 'gemini-1.5-pro-latest'
 try:
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(
@@ -269,3 +269,4 @@ if prompt:
     # 4. Rerun nếu bấm nút
     if prompt_from_button:
         st.rerun()
+
