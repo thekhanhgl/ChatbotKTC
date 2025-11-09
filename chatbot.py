@@ -1,274 +1,148 @@
-# Chạy bằng lệnh: streamlit run chatbot.py
-# ‼️ Yêu cầu cài đặt: pip install google-generativeai streamlit
-import streamlit as st
-import google.generativeai as genai  # Import thư viện Google
-import time
-import traceback  # Thêm để gỡ lỗi chi tiết
-
-#
-# *** LƯU Ý: Thầy có thể comment out (thêm #) dòng import pypdf ở đầu file nếu có
-# vì chúng ta không còn dùng đến nó.
-# Ví dụ: # from pypdf import PdfReader
-#
-
-# --- BƯỚC 1: LẤY API KEY ---
-try:
-    api_key = st.secrets["GOOGLE_API_KEY"]
-except (KeyError, FileNotFoundError):
-    st.error("Lỗi: Không tìm thấy GOOGLE_API_KEY. Vui lòng thêm vào Secrets trên Streamlit Cloud.")
-    st.stop()
-
-# BƯỚC 2: THIẾT LẬP VAI TRÒ (SYSTEM_INSTRUCTION)
-SYSTEM_INSTRUCTION = """
----
-BỐI CẢNH VAI TRÒ (ROLE CONTEXT)
----
-Bạn là “Chatbook”, một Cố vấn Học tập Tin học AI toàn diện.
-Vai trò của bạn được mô phỏng theo một **Giáo viên Tin học dạy giỏi cấp Quốc gia**: tận tâm, hiểu biết sâu rộng, và luôn kiên nhẫn.
-Mục tiêu của bạn là đồng hành, hỗ trợ học sinh THCS và THPT (từ lớp 6 đến lớp 12) nắm vững kiến thức, phát triển năng lực Tin học theo **Chuẩn chương trình Giáo dục Phổ thông 2018** của Việt Nam.
-
----
-📚 NỀN TẢNG TRI THỨC CỐT LÕI (CORE KNOWLEDGE BASE) - BẮT BUỘC
----
-Bạn **PHẢI** nắm vững và sử dụng thành thạo toàn bộ hệ thống kiến thức trong Sách giáo khoa Tin học từ lớp 6 đến lớp 12 của **CẢ BA BỘ SÁCH HIỆN HÀNH**:
-1.  **Kết nối tri thức với cuộc sống (KNTT)**
-2.  **Cánh Diều (CD)**
-3.  **Chân trời sáng tạo (CTST)**
-
-Khi giải thích khái niệm hoặc hướng dẫn kỹ năng, bạn phải ưu tiên cách tiếp cận, thuật ngữ, và ví dụ được trình bày trong các bộ sách này để đảm bảo tính thống nhất và bám sát chương trình, tránh nhầm lẫn.
-
-*** DỮ LIỆU MỤC LỤC CHUYÊN BIỆT (KHẮC PHỤC LỖI) ***
-Khi học sinh hỏi về mục lục sách (ví dụ: Tin 12 KNTT), bạn PHẢI cung cấp thông tin sau:
-* **Sách Tin học 12 – KẾT NỐI TRI THỨC VỚI CUỘC SỐNG (KNTT)** gồm 5 Chủ đề chính:
-    1.  **Chủ đề 1:** Máy tính và xã hội tri thức (Ví dụ: Công nghệ, AI)
-    2.  **Chủ đề 2:** Đạo đức, pháp luật và văn hóa trong không gian số
-    3.  **Chủ đề 3:** Hệ cơ sở dữ liệu (Ví dụ: CSDL, Hệ quản trị CSDL)
-    4.  **Chủ đề 4:** Lập trình và ứng dụng (Ví dụ: Cấu trúc dữ liệu cơ bản, Thư viện lập trình)
-    5.  **Chủ đề 5:** Mạng máy tính và Internet (Ví dụ: Mạng máy tính, Bảo mật mạng)
-
-* **Sách Tin học 12 – CHÂN TRỜI SÁNG TẠO (CTST)** gồm các Chủ đề chính:
-    1.  **Chủ đề 1:** Máy tính và cộng đồng
-    2.  **Chủ đề 2:** Tổ chức và lưu trữ dữ liệu
-    3.  **Chủ đề 3:** Đạo đức, pháp luật và văn hóa trong môi trường số
-    4.  **Chủ đề 4:** Giải quyết vấn đề với sự hỗ trợ của máy tính
-    5.  **Chủ đề 5:** Mạng máy tính và Internet
-
-* **Sách Tin học 12 – CÁNH DIỀU (CD)** gồm các Chủ đề chính:
-    1.  **Chủ đề 1:** Máy tính và Xã hội
-    2.  **Chủ đề 2:** Mạng máy tính và Internet
-    3.  **Chủ đề 3:** Thuật toán và Lập trình
-    4.  **Chủ đề 4:** Dữ liệu và Hệ thống thông tin
-    5.  **Chủ đề 5:** Ứng dụng Tin học
-*** KẾT THÚC DỮ LIỆU CHUYÊN BIỆT ***
-
----
-🌟 6 NHIỆM VỤ CỐT LÕI (CORE TASKS)
----
-#... (Giữ nguyên các nhiệm vụ từ 1 đến 6) ...
-
-**1. 👨‍🏫 Gia sư Chuyên môn (Specialized Tutor):**
-    - Giải thích các khái niệm (ví dụ: thuật toán, mạng máy tính, CSGD, CSDL) một cách trực quan, sư phạm, sử dụng ví dụ gần gũi với lứa tuổi học sinh.
-    - Luôn kết nối lý thuyết với thực tiễn, giúp học sinh thấy được "học cái này để làm gì?".
-    - Bám sát nội dung Sách giáo khoa (KNTT, CD, CTST) và yêu cầu cần đạt của Ctr 2018.
-#... (Giữ nguyên các nhiệm vụ còn lại) ...
-#... (Giữ nguyên phần QUY TẮC ỨNG XỬ & PHONG CÁCH) ...
-#... (Giữ nguyên phần XỬ LÝ THÔNG TIN TRA CỨU) ...
-#... (Giège nguyên phần LỚP TƯ DUY PHẢN BIỆN AI) ...
-#... (Giữ nguyên phần MỤC TIÊU CUỐI CÙNG) ...
+# python.py
+"""
+Simple Gemini chatbot example
+Supports:
+ - CLI interactive chat
+ - Small Flask HTTP endpoint: POST /chat  with JSON {"message": "..."}
+Dependencies:
+ pip install google-genai flask
+Set GEMINI_API_KEY in environment before running.
+Docs: https://ai.google.dev/gemini-api/docs/quickstart
 """
 
-# --- BƯỚC 3: KHỞI TẠO CLIENT VÀ CHỌN MÔ HÌNH ---
-MODEL_NAME = 'gemini-1.5-pro-latest'  # Đã xác nhận tên này là đúng
+import os
+import sys
+import json
+from typing import Optional
 
+# Google Gen AI SDK
 try:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        model_name=MODEL_NAME,
-        system_instruction=SYSTEM_INSTRUCTION
-    )
-    print("Đã cấu hình Gemini Model thành công.")
+    from google import genai
 except Exception as e:
-    st.error(f"Lỗi khi cấu hình API Gemini: {e}")
-    st.stop()
+    print("Missing google-genai package. Install with: pip install google-genai")
+    raise
 
+# Optional: simple HTTP server
+from flask import Flask, request, jsonify
 
-# --- BƯỚC 4: CẤU HÌNH TRANG VÀ CSS ---
-st.set_page_config(page_title="Chatbot Tin học 2018", page_icon="✨", layout="centered")
-st.markdown("""
-<style>
-    /* ... (Toàn bộ CSS của thầy giữ nguyên) ... */
-    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    [data-testid="stSidebar"] {
-        background-color: #f8f9fa; border-right: 1px solid #e6e6e6;
-    }
-    .main .block-container { 
-        max-width: 850px; padding-top: 2rem; padding-bottom: 5rem;
-    }
-    .welcome-message { font-size: 1.1em; color: #333; }
-</style>
-""", unsafe_allow_html=True)
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+API_KEY = os.environ.get("GEMINI_API_KEY", None)
 
+# Create client: the client will read GEMINI_API_KEY automatically if set in environment
+if API_KEY:
+    client = genai.Client(api_key=API_KEY)
+else:
+    # If user didn't set env var, try default constructor (docs say it picks up GEMINI_API_KEY)
+    client = genai.Client()
 
-# --- BƯỚC 4.5: THANH BÊN (SIDEBAR) ---
-with st.sidebar:
-    st.title("🤖 Chatbot KTC")
-    st.markdown("---")
-    
-    if st.button("➕ Cuộc trò chuyện mới", use_container_width=True):
-        st.session_state.messages = []
-        st.session_state.pop("knowledge_chunks", None) # Xóa cache kiến thức
-        st.rerun()
-
-    st.markdown("---")
-    st.markdown(
-        "Giáo viên hướng dẫn:\n"
-        "**Thầy Nguyễn Thế Khanh** (GV Tin học)\n\n"
-        "Học sinh thực hiện:\n"
-        "*(Bùi Tá Tùng)*\n"
-        "*(Cao Sỹ Bảo Chung)*"
-    )
-    st.markdown("---")
-    st.caption(f"Model: {MODEL_NAME}")
-
-
-# --- BƯỚC 4.6: CÁC HÀM RAG (ĐỌC "SỔ TAY" TỪ PDF) --- #
-# (Các hàm này vẫn được định nghĩa, nhưng sẽ không được gọi nữa)
-
-@st.cache_data(ttl=3600) 
-def load_and_chunk_pdfs():
-    # Sẽ không chạy vì chúng ta đã vô hiệu hóa ở BƯỚC 5
-    print("HÀM 'load_and_chunk_pdfs' SẼ KHÔNG ĐƯỢC GỌI.")
-    return []
-
-def find_relevant_knowledge(query, knowledge_chunks, num_chunks=3):
-    # Sẽ không chạy vì chúng ta đã vô hiệu hóa ở BƯỚC 8
-    print("HÀM 'find_relevant_knowledge' SẼ KHÔNG ĐƯỢC GỌI.")
-    return None
-
-
-# --- BƯỚC 5: KHỞI TẠO LỊCH SỬ CHAT VÀ "SỔ TAY" PDF --- # <--- ĐÃ VÔ HIỆU HÓA RAG
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# --- ĐÃ VÔ HIỆU HÓA RAG THEO YÊU CẦU ---
-# Tải và xử lý PDF khi app khởi động
-if "knowledge_chunks" not in st.session_state:
-    # Chúng ta không gọi hàm load_and_chunk_pdfs() nữa
-    # Thay vào đó, chỉ cần khởi tạo một danh sách rỗng
-    st.session_state.knowledge_chunks = []
-    print("RAG (Đọc PDF) đã bị tắt. Bỏ qua việc tải file.")
-# --- KẾT THÚC VÔ HIỆU HÓA ---
-
-
-# --- BƯỚC 6: HIỂN THỊ LỊCH SỬ CHAT ---
-for message in st.session_state.messages:
-    avatar = "✨" if message["role"] == "assistant" else "👤"
-    with st.chat_message(message["role"], avatar=avatar):
-        st.markdown(message["content"])
-
-# --- BƯỚC 7: MÀN HÌNH CHÀO MỪNG VÀ GỢI Ý ---
-logo_path = "LOGO.jpg" 
-col1, col2 = st.columns([1, 5])
-with col1:
+# --- Helper to send a single message (stateless) ---
+def send_message_stateless(prompt: str, model: str = MODEL, max_tokens: Optional[int] = 512) -> str:
+    """
+    Send a single request to Gemini and return text.
+    This is quick to start with; for multi-turn you'd normally use client.chats.create(...)
+    or store conversation state and pass it to the model.
+    """
+    # Simple usage via generate_content
+    resp = client.models.generate_content(model=model, contents=prompt)
+    # Many SDK responses expose .text
     try:
-        st.image(logo_path, width=80)
-    except Exception as e:
-        st.error(f"Lỗi: Không tìm thấy file logo tên là '{logo_path}'. Vui lòng kiểm tra lại tên file trên GitHub.")
-        st.stop()
-with col2:
-    st.title("KTC. Chatbot hỗ trợ môn Tin Học")
+        return resp.text
+    except AttributeError:
+        # Fallback: try converting to dict or candidates
+        try:
+            return str(resp)
+        except Exception:
+            return ""
 
-def set_prompt_from_suggestion(text):
-    st.session_state.prompt_from_button = text
+# --- Simple multi-turn using the SDK's chat helper (recommended for context) ---
+def create_chat_and_send(initial_system_prompt: str = "You are a helpful assistant.", model: str = MODEL):
+    """
+    Create a chat session object (stateful) via SDK, return object with .send_message()
+    Requires google-genai version that supports client.chats.create(...)
+    """
+    # Some SDK versions provide client.chats.create(...)
+    if not hasattr(client, "chats") or not hasattr(client.chats, "create"):
+        raise RuntimeError("This SDK build does not support client.chats.create(). Use generate_content or upgrade google-genai.")
+    chat = client.chats.create(model=model)
+    # If the SDK supports adding system message, use send_message with system role if available
+    if initial_system_prompt:
+        # send system prompt first (if API supports role differentiation).
+        # Many SDKs accept plain text for initial system context; if not, this is still ok.
+        chat.send_message(f"[System]\n{initial_system_prompt}")
+    return chat
 
-if not st.session_state.messages:
-    st.markdown(f"<div class='welcome-message'>Xin chào! Thầy/em cần hỗ trợ gì về môn Tin học (Chương trình 2018)?</div>", unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-    # ... (Toàn bộ các nút bấm gợi ý của thầy giữ nguyên) ...
-    col1_btn, col2_btn = st.columns(2)
-    with col1_btn:
-        st.button(
-            "Giải thích về 'biến' trong lập trình?",
-            on_click=set_prompt_from_suggestion, args=("Giải thích về 'biến' trong lập trình?",),
-            use_container_width=True
-        )
-        st.button(
-            "Trình bày về an toàn thông tin?",
-            on_click=set_prompt_from_suggestion, args=("Trình bày về an toàn thông tin?",),
-            use_container_width=True
-        )
-    with col2_btn:
-        st.button(
-            "Sự khác nhau giữa RAM và ROM?",
-            on_click=set_prompt_from_suggestion, args=("Sự khác nhau giữa RAM và ROM?",),
-            use_container_width=True
-        )
-        st.button(
-            "Các bước chèn ảnh vào word",
-            on_click=set_prompt_from_suggestion, args=("Các bước chèn ảnh vào word",),
-            use_container_width=True
-        )
+# --- CLI interactive chat loop (stateful using chat session if available) ---
+def run_cli():
+    print("Gemini CLI Chat — type 'exit' to quit.")
+    # Try to use chat API for multi-turn if available
+    use_chat_obj = hasattr(client, "chats") and hasattr(client.chats, "create")
+    if use_chat_obj:
+        try:
+            chat = create_chat_and_send()
+        except Exception as e:
+            print("Warning: couldn't create chat session, falling back to stateless. Error:", e)
+            use_chat_obj = False
+            chat = None
+    else:
+        chat = None
 
+    while True:
+        user_input = input("\nYou: ").strip()
+        if not user_input:
+            continue
+        if user_input.lower() in ("exit", "quit"):
+            print("Goodbye!")
+            break
 
-# --- BƯỚC 8: XỬ LÝ INPUT (ĐÃ VÔ HIỆU HÓA RAG PDF) --- # <--- ĐÃ CẬP NHẬT
-prompt_from_input = st.chat_input("Mời thầy hoặc các em đặt câu hỏi về Tin học...")
-prompt_from_button = st.session_state.pop("prompt_from_button", None)
-prompt = prompt_from_button or prompt_from_input
+        try:
+            if use_chat_obj and chat is not None:
+                resp = chat.send_message(user_input)
+                # stream support: some SDKs return chunks via send_message_stream
+                text = getattr(resp, "text", str(resp))
+            else:
+                text = send_message_stateless(user_input)
+        except Exception as e:
+            text = f"[Error while calling Gemini API] {e}"
 
-if prompt:
-    # 1. Thêm câu hỏi của user vào lịch sử và hiển thị
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
-        st.markdown(prompt)
+        print("\nGemini: ")
+        print(text)
 
-    # 2. Gửi câu hỏi đến Gemini
+# --- Flask server for simple HTTP chatbot endpoint ---
+app = Flask(__name__)
+
+@app.route("/chat", methods=["POST"])
+def chat_endpoint():
+    """
+    POST /chat
+    Body: {"message": "Hello", "use_stateful": true/false}
+    Response: {"reply": "..."}
+    """
+    data = request.get_json(force=True, silent=True) or {}
+    message = data.get("message", "")
+    use_stateful = bool(data.get("use_stateful", True))
+
+    if not message:
+        return jsonify({"error": "missing 'message' in JSON body"}), 400
+
     try:
-        with st.chat_message("assistant", avatar="✨"):
-            placeholder = st.empty()
-            bot_response_text = ""
-
-            # 2.1. Chuyển đổi lịch sử chat sang định dạng của Gemini
-            messages_to_send = []
-            for msg in st.session_state.messages:
-                role = "model" if msg["role"] == "assistant" else "user"
-                
-                messages_to_send.append({
-                    "role": role,
-                    "parts": [{"text": msg["content"]}] 
-                })
-            
-            # 2.2. Gọi API Gemini
-            stream = model.generate_content(
-                messages_to_send, # Gửi toàn bộ lịch sử đã chuyển đổi
-                stream=True
-            )
-            
-            # 2.3. Lặp qua từng "mẩu" (chunk) API trả về
-            for chunk in stream:
-                if chunk.text: # Lấy text từ chunk
-                    bot_response_text += chunk.text
-                    placeholder.markdown(bot_response_text + "▌")
-                    time.sleep(0.005) # Giữ lại hiệu ứng
-            
-            # --- ‼️ SỬA LỖI 1 (LỖI IM LẶNG) ‼️ ---
-            # Bắt trường hợp stream chạy xong nhưng không có text (ví dụ: bị safety block)
-            if not bot_response_text:
-                bot_response_text = "Xin lỗi, tôi không thể tạo câu trả lời cho truy vấn này."
-            
-            placeholder.markdown(bot_response_text) # Xóa dấu ▌ khi hoàn tất
-
+        if use_stateful and hasattr(client, "chats") and hasattr(client.chats, "create"):
+            # Create ephemeral chat per request or integrate session management for true multi-turn
+            chat = client.chats.create(model=MODEL)
+            resp = chat.send_message(message)
+            reply = getattr(resp, "text", str(resp))
+        else:
+            reply = send_message_stateless(message)
     except Exception as e:
-        with st.chat_message("assistant", avatar="✨"):
-            # Cung cấp thông tin gỡ lỗi chi tiết hơn
-            st.error(f"Xin lỗi, đã xảy ra lỗi khi kết nối Gemini: {e}")
-            st.error(traceback.format_exc()) # In ra traceback để dễ gỡ lỗi
-        bot_response_text = f"LỖI: {e}" # Gán lỗi vào text để lưu lại
+        return jsonify({"error": "API call failed", "detail": str(e)}), 500
 
-    # 3. Thêm câu trả lời của bot vào lịch sử (chỉ khi có nội dung)
-    if bot_response_text:
-        st.session_state.messages.append({"role": "assistant", "content": bot_response_text})
+    return jsonify({"reply": reply})
 
-    # 4. --- ‼️ SỬA LỖI 2 (LỖI VÒNG LẶP) ‼️ ---
-    # Đã XÓA khối 'if prompt_from_button: st.rerun()'
-    # Lý do: on_click của nút bấm đã tự động rerun 1 lần rồi.
-    # Thêm st.rerun() ở đây sẽ gây ra rerun LẦN THỨ 2, gây lỗi.
+# --- Entrypoint ---
+if __name__ == "__main__":
+    # If run with "python python.py serve" -> start Flask server
+    if len(sys.argv) > 1 and sys.argv[1] in ("serve", "server", "--serve"):
+        port = int(os.environ.get("PORT", 5000))
+        print(f"Starting Flask server on port {port} (endpoint POST /chat)")
+        app.run(host="0.0.0.0", port=port)
+    else:
+        run_cli()
