@@ -78,10 +78,7 @@ Khi học sinh hỏi về mục lục sách (ví dụ: Tin 12 KNTT), bạn PHẢ
 """
 
 # --- BƯỚC 3: KHỞI TẠO CLIENT VÀ CHỌN MÔ HÌNH ---
-
-# ‼️‼️‼️ DÒNG SỬA ĐỔI DUY NHẤT LÀ DÒNG DƯỚI ĐÂY ‼️‼️‼️
-MODEL_NAME = 'gemini-1.5-pro-latest'  # Sửa từ 'gemini-2.5-pro'
-# ‼️‼️‼️ HẾT SỬA ĐỔI ‼️‼️‼️
+MODEL_NAME = 'gemini-1.5-pro-latest'  # Đã xác nhận tên này là đúng
 
 try:
     genai.configure(api_key=api_key)
@@ -231,20 +228,16 @@ if prompt:
             bot_response_text = ""
 
             # 2.1. Chuyển đổi lịch sử chat sang định dạng của Gemini
-            # (Gemini dùng 'model' thay vì 'assistant')
             messages_to_send = []
             for msg in st.session_state.messages:
                 role = "model" if msg["role"] == "assistant" else "user"
                 
-                # <<< THAY ĐỔI QUAN TRỌNG: Sửa định dạng theo yêu cầu của Gemini
                 messages_to_send.append({
                     "role": role,
                     "parts": [{"text": msg["content"]}] 
                 })
-                # <<< KẾT THÚC THAY ĐỔI
             
             # 2.2. Gọi API Gemini
-            # (SYSTEM_INSTRUCTION đã được truyền ở BƯỚC 3 khi khởi tạo model)
             stream = model.generate_content(
                 messages_to_send, # Gửi toàn bộ lịch sử đã chuyển đổi
                 stream=True
@@ -257,6 +250,11 @@ if prompt:
                     placeholder.markdown(bot_response_text + "▌")
                     time.sleep(0.005) # Giữ lại hiệu ứng
             
+            # --- ‼️ SỬA LỖI 1 (LỖI IM LẶNG) ‼️ ---
+            # Bắt trường hợp stream chạy xong nhưng không có text (ví dụ: bị safety block)
+            if not bot_response_text:
+                bot_response_text = "Xin lỗi, tôi không thể tạo câu trả lời cho truy vấn này."
+            
             placeholder.markdown(bot_response_text) # Xóa dấu ▌ khi hoàn tất
 
     except Exception as e:
@@ -264,12 +262,13 @@ if prompt:
             # Cung cấp thông tin gỡ lỗi chi tiết hơn
             st.error(f"Xin lỗi, đã xảy ra lỗi khi kết nối Gemini: {e}")
             st.error(traceback.format_exc()) # In ra traceback để dễ gỡ lỗi
-        bot_response_text = "" # Đặt lại là rỗng để không lưu vào lịch sử
+        bot_response_text = f"LỖI: {e}" # Gán lỗi vào text để lưu lại
 
     # 3. Thêm câu trả lời của bot vào lịch sử (chỉ khi có nội dung)
     if bot_response_text:
         st.session_state.messages.append({"role": "assistant", "content": bot_response_text})
 
-    # 4. Rerun nếu bấm nút
-    if prompt_from_button:
-        st.rerun()
+    # 4. --- ‼️ SỬA LỖI 2 (LỖI VÒNG LẶP) ‼️ ---
+    # Đã XÓA khối 'if prompt_from_button: st.rerun()'
+    # Lý do: on_click của nút bấm đã tự động rerun 1 lần rồi.
+    # Thêm st.rerun() ở đây sẽ gây ra rerun LẦN THỨ 2, gây lỗi.
