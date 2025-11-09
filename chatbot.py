@@ -73,12 +73,16 @@ Khi học sinh hỏi về mục lục sách (ví dụ: Tin 12 KNTT), bạn PHẢ
 #... (Giữ nguyên các nhiệm vụ còn lại) ...
 #... (Giữ nguyên phần QUY TẮC ỨNG XỬ & PHONG CÁCH) ...
 #... (Giữ nguyên phần XỬ LÝ THÔNG TIN TRA CỨU) ...
-#... (Giữ nguyên phần LỚP TƯ DUY PHẢN BIỆN AI) ...
+#... (Giège nguyên phần LỚP TƯ DUY PHẢN BIỆN AI) ...
 #... (Giữ nguyên phần MỤC TIÊU CUỐI CÙNG) ...
 """
 
 # --- BƯỚC 3: KHỞI TẠO CLIENT VÀ CHỌN MÔ HÌNH ---
-MODEL_NAME = 'gemini-1.5-pro-latest'
+
+# ‼️‼️‼️ DÒNG SỬA ĐỔI DUY NHẤT LÀ DÒNG DƯỚI ĐÂY ‼️‼️‼️
+MODEL_NAME = 'gemini-1.5-pro-latest'  # Sửa từ 'gemini-2.5-pro'
+# ‼️‼️‼️ HẾT SỬA ĐỔI ‼️‼️‼️
+
 try:
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(
@@ -260,13 +264,12 @@ if prompt:
             # Cung cấp thông tin gỡ lỗi chi tiết hơn
             st.error(f"Xin lỗi, đã xảy ra lỗi khi kết nối Gemini: {e}")
             st.error(traceback.format_exc()) # In ra traceback để dễ gỡ lỗi
-        bot_response_text = ""
+        bot_response_text = "" # Đặt lại là rỗng để không lưu vào lịch sử
 
-    # 3. Thêm câu trả lời của bot vào lịch sử
+    # 3. Thêm câu trả lời của bot vào lịch sử (chỉ khi có nội dung)
     if bot_response_text:
         st.session_state.messages.append({"role": "assistant", "content": bot_response_text})
 
     # 4. Rerun nếu bấm nút
     if prompt_from_button:
         st.rerun()
-
