@@ -1,6 +1,2 @@
 streamlit
 google-generativeai
-# Các thư viện khác mà thầy dùng, VÍ DỤ:
-# altair
-# pandas
-# numpy
