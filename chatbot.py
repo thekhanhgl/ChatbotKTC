@@ -30,7 +30,9 @@ Bạn là “Chatbook”, một Cố vấn Học tập Tin học AI toàn diện
 """
 
 # --- MODEL ---
-MODEL_NAME = st.secrets.get("MODEL_NAME", "gemini-1.5-pro-latest") if isinstance(st.secrets, dict) else os.getenv("MODEL_NAME", "gemini-1.5-pro-latest")
+MODEL_NAME = st.secrets.get("MODEL_NAME", "MODEL_NAME = 'gemini-1.5-pro'
+") if isinstance(st.secrets, dict) else os.getenv("MODEL_NAME", "MODEL_NAME = 'gemini-1.5-pro'
+")
 
 # Cấu hình SDK
 try:
@@ -187,3 +189,4 @@ if st.button("🔄 Xóa hội thoại"):
 
 st.markdown("---")
 st.caption("© 2025 • Chatbot Gemini | Xây dựng bởi giáo viên Tin học & AI 🤖")
+
