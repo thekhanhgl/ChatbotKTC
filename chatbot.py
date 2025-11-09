@@ -1,9 +1,9 @@
 # Chạy bằng lệnh: streamlit run chatbot.py
 # ‼️ Yêu cầu cài đặt: pip install google-generativeai streamlit
 import streamlit as st
-import google.generativeai as genai  # <<< THAY ĐỔI: Import thư viện Google
+import google.generativeai as genai  # Import thư viện Google
 import time
-import traceback  # <<< THAY ĐỔI: Thêm để gỡ lỗi chi tiết
+import traceback  # Thêm để gỡ lỗi chi tiết
 
 #
 # *** LƯU Ý: Thầy có thể comment out (thêm #) dòng import pypdf ở đầu file nếu có
@@ -13,10 +13,8 @@ import traceback  # <<< THAY ĐỔI: Thêm để gỡ lỗi chi tiết
 
 # --- BƯỚC 1: LẤY API KEY ---
 try:
-    # <<< THAY ĐỔI: Lấy API Key của Google
     api_key = st.secrets["GOOGLE_API_KEY"]
 except (KeyError, FileNotFoundError):
-    # <<< THAY ĐỔI: Cập nhật thông báo lỗi
     st.error("Lỗi: Không tìm thấy GOOGLE_API_KEY. Vui lòng thêm vào Secrets trên Streamlit Cloud.")
     st.stop()
 
@@ -39,7 +37,7 @@ Bạn **PHẢI** nắm vững và sử dụng thành thạo toàn bộ hệ th�
 
 Khi giải thích khái niệm hoặc hướng dẫn kỹ năng, bạn phải ưu tiên cách tiếp cận, thuật ngữ, và ví dụ được trình bày trong các bộ sách này để đảm bảo tính thống nhất và bám sát chương trình, tránh nhầm lẫn.
 
-*** DỮ LIỆỆU MỤC LỤC CHUYÊN BIỆT (KHẮC PHỤC LỖI) ***
+*** DỮ LIỆU MỤC LỤC CHUYÊN BIỆT (KHẮC PHỤC LỖI) ***
 Khi học sinh hỏi về mục lục sách (ví dụ: Tin 12 KNTT), bạn PHẢI cung cấp thông tin sau:
 * **Sách Tin học 12 – KẾT NỐI TRI THỨC VỚI CUỘC SỐNG (KNTT)** gồm 5 Chủ đề chính:
     1.  **Chủ đề 1:** Máy tính và xã hội tri thức (Ví dụ: Công nghệ, AI)
@@ -80,7 +78,6 @@ Khi học sinh hỏi về mục lục sách (ví dụ: Tin 12 KNTT), bạn PHẢ
 """
 
 # --- BƯỚC 3: KHỞI TẠO CLIENT VÀ CHỌN MÔ HÌNH ---
-# <<< THAY ĐỔI: Cấu hình Gemini
 MODEL_NAME = 'gemini-2.5-pro' 
 try:
     genai.configure(api_key=api_key)
@@ -92,7 +89,6 @@ try:
 except Exception as e:
     st.error(f"Lỗi khi cấu hình API Gemini: {e}")
     st.stop()
-# --- KẾT THÚC THAY ĐỔI ---
 
 
 # --- BƯỚC 4: CẤU HÌNH TRANG VÀ CSS ---
@@ -225,7 +221,6 @@ if prompt:
         st.markdown(prompt)
 
     # 2. Gửi câu hỏi đến Gemini
-    # <<< THAY ĐỔI: Logic gọi API Gemini
     try:
         with st.chat_message("assistant", avatar="✨"):
             placeholder = st.empty()
@@ -236,7 +231,13 @@ if prompt:
             messages_to_send = []
             for msg in st.session_state.messages:
                 role = "model" if msg["role"] == "assistant" else "user"
-                messages_to_send.append({"role": role, "content": msg["content"]})
+                
+                # <<< THAY ĐỔI QUAN TRỌNG: Sửa định dạng theo yêu cầu của Gemini
+                messages_to_send.append({
+                    "role": role,
+                    "parts": [{"text": msg["content"]}] 
+                })
+                # <<< KẾT THÚC THAY ĐỔI
             
             # 2.2. Gọi API Gemini
             # (SYSTEM_INSTRUCTION đã được truyền ở BƯỚC 3 khi khởi tạo model)
@@ -260,7 +261,6 @@ if prompt:
             st.error(f"Xin lỗi, đã xảy ra lỗi khi kết nối Gemini: {e}")
             st.error(traceback.format_exc()) # In ra traceback để dễ gỡ lỗi
         bot_response_text = ""
-    # --- KẾT THÚC THAY ĐỔI ---
 
     # 3. Thêm câu trả lời của bot vào lịch sử
     if bot_response_text:
