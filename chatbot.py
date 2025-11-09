@@ -1,11 +1,10 @@
 # Chạy bằng lệnh: streamlit run chatbot.py
-# ‼️ Yêu cầu cài đặt: pip install groq streamlit
-# (Lưu ý: Pypdf không còn cần thiết nếu thầy tắt RAG, nhưng để đó cũng không sao)
+# ‼️ Yêu cầu cài đặt: pip install google-generativeai streamlit
 import streamlit as st
-from groq import Groq
-import os
-import glob
+import google.generativeai as genai  # <<< THAY ĐỔI: Import thư viện Google
 import time
+import traceback  # <<< THAY ĐỔI: Thêm để gỡ lỗi chi tiết
+
 #
 # *** LƯU Ý: Thầy có thể comment out (thêm #) dòng import pypdf ở đầu file nếu có
 # vì chúng ta không còn dùng đến nó.
@@ -14,11 +13,13 @@ import time
 
 # --- BƯỚC 1: LẤY API KEY ---
 try:
-    api_key = st.secrets["GROQ_API_KEY"]
+    # <<< THAY ĐỔI: Lấy API Key của Google
+    api_key = st.secrets["GOOGLE_API_KEY"]
 except (KeyError, FileNotFoundError):
-    st.error("Lỗi: Không tìm thấy GROQ_API_KEY. Vui lòng thêm vào Secrets trên Streamlit Cloud.")
+    # <<< THAY ĐỔI: Cập nhật thông báo lỗi
+    st.error("Lỗi: Không tìm thấy GOOGLE_API_KEY. Vui lòng thêm vào Secrets trên Streamlit Cloud.")
     st.stop()
-    
+
 # BƯỚC 2: THIẾT LẬP VAI TRÒ (SYSTEM_INSTRUCTION)
 SYSTEM_INSTRUCTION = """
 ---
@@ -38,7 +39,7 @@ Bạn **PHẢI** nắm vững và sử dụng thành thạo toàn bộ hệ th�
 
 Khi giải thích khái niệm hoặc hướng dẫn kỹ năng, bạn phải ưu tiên cách tiếp cận, thuật ngữ, và ví dụ được trình bày trong các bộ sách này để đảm bảo tính thống nhất và bám sát chương trình, tránh nhầm lẫn.
 
-*** DỮ LIỆU MỤC LỤC CHUYÊN BIỆT (KHẮC PHỤC LỖI) ***
+*** DỮ LIỆỆU MỤC LỤC CHUYÊN BIỆT (KHẮC PHỤC LỖI) ***
 Khi học sinh hỏi về mục lục sách (ví dụ: Tin 12 KNTT), bạn PHẢI cung cấp thông tin sau:
 * **Sách Tin học 12 – KẾT NỐI TRI THỨC VỚI CUỘC SỐNG (KNTT)** gồm 5 Chủ đề chính:
     1.  **Chủ đề 1:** Máy tính và xã hội tri thức (Ví dụ: Công nghệ, AI)
@@ -78,16 +79,22 @@ Khi học sinh hỏi về mục lục sách (ví dụ: Tin 12 KNTT), bạn PHẢ
 #... (Giữ nguyên phần MỤC TIÊU CUỐI CÙNG) ...
 """
 
-# (Tùy chọn) In ra để kiểm tra
-# print(SYSTEM_INSTRUCTION)
-# --- BƯỚC 3: KHỞI TẠO CLIENT VÀ CHỌN MÔ HÌNH ---# --- BƯỚC 3: KHỞI TẠO CLIENT VÀ CHỌN MÔ HÌNH ---
+# --- BƯỚC 3: KHỞI TẠO CLIENT VÀ CHỌN MÔ HÌNH ---
+# <<< THAY ĐỔI: Cấu hình Gemini
+MODEL_NAME = 'gemini-2.5-pro' 
 try:
-    client = Groq(api_key=api_key) 
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(
+        model_name=MODEL_NAME,
+        system_instruction=SYSTEM_INSTRUCTION
+    )
+    print("Đã cấu hình Gemini Model thành công.")
 except Exception as e:
-    st.error(f"Lỗi khi cấu hình API Groq: {e}")
+    st.error(f"Lỗi khi cấu hình API Gemini: {e}")
     st.stop()
+# --- KẾT THÚC THAY ĐỔI ---
 
-MODEL_NAME = 'llama-3.1-8b-instant'
+
 # --- BƯỚC 4: CẤU HÌNH TRANG VÀ CSS ---
 st.set_page_config(page_title="Chatbot Tin học 2018", page_icon="✨", layout="centered")
 st.markdown("""
@@ -201,7 +208,7 @@ if not st.session_state.messages:
         )
         st.button(
             "Các bước chèn ảnh vào word",
-            on_click=set_prompt_from_suggestion, args=("Các bước chèn ảnh vào word?",),
+            on_click=set_prompt_from_suggestion, args=("Các bước chèn ảnh vào word",),
             use_container_width=True
         )
 
@@ -217,50 +224,43 @@ if prompt:
     with st.chat_message("user", avatar="👤"):
         st.markdown(prompt)
 
-    # 2. Gửi câu hỏi đến Groq
+    # 2. Gửi câu hỏi đến Gemini
+    # <<< THAY ĐỔI: Logic gọi API Gemini
     try:
         with st.chat_message("assistant", avatar="✨"):
             placeholder = st.empty()
             bot_response_text = ""
 
-            # --- PHẦN RAG MỚI ĐÃ BỊ VÔ HIỆU HÓA --- #
+            # 2.1. Chuyển đổi lịch sử chat sang định dạng của Gemini
+            # (Gemini dùng 'model' thay vì 'assistant')
+            messages_to_send = []
+            for msg in st.session_state.messages:
+                role = "model" if msg["role"] == "assistant" else "user"
+                messages_to_send.append({"role": role, "content": msg["content"]})
             
-            # 2.1. (BỎ QUA) Tìm kiếm trong kho kiến thức PDF
-            # retrieved_context = find_relevant_knowledge(prompt, st.session_state.knowledge_chunks)
-            
-            # 2.2. Chuẩn bị list tin nhắn gửi cho AI (Không dùng RAG)
-            messages_to_send = [
-                {"role": "system", "content": SYSTEM_INSTRUCTION}
-            ]
-            
-            # 2.3. (BỎ QUA) logic 'if retrieved_context:'
-            
-            # Thay vào đó, chúng ta gửi toàn bộ lịch sử chat như bình thường
-            print("RAG đã tắt. Trả lời bình thường dựa trên lịch sử chat.")
-            messages_to_send.extend(st.session_state.messages)
-            
-            # --- KẾT THÚC PHẦN RAG BỊ VÔ HIỆU HÓA --- #
-
-            # 2.4. Gọi API Groq
-            stream = client.chat.completions.create(
-                messages=messages_to_send, # Gửi lịch sử chat tiêu chuẩn
-                model=MODEL_NAME,
+            # 2.2. Gọi API Gemini
+            # (SYSTEM_INSTRUCTION đã được truyền ở BƯỚC 3 khi khởi tạo model)
+            stream = model.generate_content(
+                messages_to_send, # Gửi toàn bộ lịch sử đã chuyển đổi
                 stream=True
             )
             
-            # 2.5. Lặp qua từng "mẩu" (chunk) API trả về
+            # 2.3. Lặp qua từng "mẩu" (chunk) API trả về
             for chunk in stream:
-                if chunk.choices[0].delta.content is not None: 
-                    bot_response_text += chunk.choices[0].delta.content
+                if chunk.text: # Lấy text từ chunk
+                    bot_response_text += chunk.text
                     placeholder.markdown(bot_response_text + "▌")
-                    time.sleep(0.005) # <--- Tạo hiệu ứng
+                    time.sleep(0.005) # Giữ lại hiệu ứng
             
             placeholder.markdown(bot_response_text) # Xóa dấu ▌ khi hoàn tất
 
     except Exception as e:
         with st.chat_message("assistant", avatar="✨"):
-            st.error(f"Xin lỗi, đã xảy ra lỗi khi kết nối Groq: {e}")
+            # Cung cấp thông tin gỡ lỗi chi tiết hơn
+            st.error(f"Xin lỗi, đã xảy ra lỗi khi kết nối Gemini: {e}")
+            st.error(traceback.format_exc()) # In ra traceback để dễ gỡ lỗi
         bot_response_text = ""
+    # --- KẾT THÚC THAY ĐỔI ---
 
     # 3. Thêm câu trả lời của bot vào lịch sử
     if bot_response_text:
